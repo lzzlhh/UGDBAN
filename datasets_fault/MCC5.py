@@ -1,0 +1,254 @@
+import os
+import json
+from scipy.io import loadmat
+import numpy as np
+import pandas as pd
+import torch
+from sklearn.model_selection import train_test_split
+from datasets_fault.SequenceDatasets import dataset
+from datasets_fault.sequence_aug import *
+from tqdm import tqdm
+from itertools import islice
+
+
+
+#Digital data was collected at 12,000 samples per second
+signal_size = 1024
+# work_condition=['_10Nm-1000rpm.csv','_10Nm-2000rpm.csv','_10Nm-3000rpm.csv']
+work_condition=['_1000rpm_10Nm.csv','_1000rpm_20Nm.csv','_2000rpm_10Nm.csv','_2000rpm_20Nm.csv','_3000rpm_10Nm.csv','_3000rpm_20Nm.csv']
+axis=['speed', 'torque', 'motor_vibration_x', 'motor_vibration_y', 'motor_vibration_z', 'gearbox_vibration_x', 'gearbox_vibration_y', 'gearbox_vibration_z']
+dataname= {0:[os.path.join('health_torque_circulation'+work_condition[0]),
+              os.path.join('gear_pitting_H_torque_circulation'+work_condition[0]),
+              os.path.join('gear_wear_H_torque_circulation'+work_condition[0]),
+              os.path.join('miss_teeth_torque_circulation'+work_condition[0]),
+              os.path.join('teeth_break_H_torque_circulation' + work_condition[0]),
+              os.path.join('teeth_crack_H_torque_circulation' + work_condition[0]),
+              ],
+         1:[os.path.join('health_torque_circulation'+work_condition[1]),
+              os.path.join('gear_pitting_H_torque_circulation'+work_condition[1]),
+              os.path.join('gear_wear_H_torque_circulation'+work_condition[1]),
+              os.path.join('miss_teeth_torque_circulation'+work_condition[1]),
+              os.path.join('teeth_break_H_torque_circulation' + work_condition[1]),
+              os.path.join('teeth_crack_H_torque_circulation' + work_condition[1]),
+           ],
+        2: [os.path.join('health_torque_circulation' + work_condition[2]),
+               os.path.join('gear_pitting_H_torque_circulation' + work_condition[2]),
+               os.path.join('gear_wear_H_torque_circulation' + work_condition[2]),
+               os.path.join('miss_teeth_torque_circulation' + work_condition[2]),
+               os.path.join('teeth_break_H_torque_circulation' + work_condition[2]),
+               os.path.join('teeth_crack_H_torque_circulation' + work_condition[2]),
+               ],
+           3: [os.path.join('health_torque_circulation' + work_condition[3]),
+               os.path.join('gear_pitting_H_torque_circulation' + work_condition[3]),
+               os.path.join('gear_wear_H_torque_circulation' + work_condition[3]),
+               os.path.join('miss_teeth_torque_circulation' + work_condition[3]),
+               os.path.join('teeth_break_H_torque_circulation' + work_condition[3]),
+               os.path.join('teeth_crack_H_torque_circulation' + work_condition[3]),
+               ],
+           4: [os.path.join('health_torque_circulation' + work_condition[4]),
+               os.path.join('gear_pitting_H_torque_circulation' + work_condition[4]),
+               os.path.join('gear_wear_H_torque_circulation' + work_condition[4]),
+               os.path.join('miss_teeth_torque_circulation' + work_condition[4]),
+               os.path.join('teeth_break_H_torque_circulation' + work_condition[4]),
+               os.path.join('teeth_crack_H_torque_circulation' + work_condition[4]),
+               ],
+           5: [os.path.join('health_torque_circulation' + work_condition[5]),
+               os.path.join('gear_pitting_H_torque_circulation' + work_condition[5]),
+               os.path.join('gear_wear_H_torque_circulation' + work_condition[5]),
+               os.path.join('miss_teeth_torque_circulation' + work_condition[5]),
+               os.path.join('teeth_break_H_torque_circulation' + work_condition[5]),
+               os.path.join('teeth_crack_H_torque_circulation' + work_condition[5]),
+               ],
+
+           }
+
+label = [i for i in range(0, 6)]
+
+def get_files(root, N):
+    '''
+    This function is used to generate the final training set and test set.
+    root:The location of the data set
+    '''
+    data = []
+    lab =[]
+    for k in range(len(N)):
+        for n in tqdm(range(len(dataname[N[k]]))):
+            path1 = os.path.join(root, dataname[N[k]][n])
+            if n==0:
+                data1, lab1 = data_load(path1,  label=label[n])
+            else:
+                data1, lab1 = data_load(path1, label=label[n])
+            data += data1
+            lab +=lab1
+
+    return [data, lab]
+
+
+# def data_load(filename, label):
+#     '''
+#     This function is mainly used to generate test data and training data.
+#     filename:Data location
+#     axisname:Select which channel's data,---->"_DE_time","_FE_time","_BA_time"
+#     '''
+#     #--------------------
+#     f = open(filename, "r", encoding='gb18030', errors='ignore')
+#     fl = []
+#     # if  "ball_20_0.csv" in filename:
+#     #     for line in islice(f, 1, None):  # Skip the first 1 lines
+#     #         line = line.rstrip()
+#     #         word = line.split(",", 8)  # Separated by commas
+#     #         fl.append(eval(word[1]))  # Take a vibration signal in the x direction as input
+#     # else:
+#     for line in islice(f, 1, None):  # Skip the first 16 lines
+#         line = line.rstrip()
+#         word = line.split(",", 8)  # Separated by \t
+#         fl.append(eval(word[7]))  # Take a vibration signal in the x direction as input
+#     #--------------------
+#     fl = np.array(fl)
+#     fl = fl.reshape(-1, 1)
+#     # print(fl.shape())
+#     data = []
+#     lab = []
+#     start, end = int(fl.shape[0]/2), int(fl.shape[0]/2)+signal_size
+#     while end <= (int(fl.shape[0]/2)+int(fl.shape[0]/3)):
+#         data.append(fl[start:end])
+#         lab.append(label)
+#         start += signal_size
+#         end += signal_size
+#     return data, lab
+# def data_load(filename, label):
+#     '''
+#     This function is mainly used to generate test data and training data.
+#     filename:Data location
+#     axisname:Select which channel's data,---->"_DE_time","_FE_time","_BA_time"
+#     '''
+#     # datanumber = axisname.split(".")
+#     max_samples = 300
+#     realaxis = axis[7]
+#     df = pd.read_csv(filename, delimiter='\t')
+#     fl = df[realaxis]
+#     data = []
+#     lab = []
+#     start, end = 0, signal_size
+#     sample_count = 0
+def data_load(filename, label):
+    '''
+    This function is mainly used to generate test data and training data.
+    filename:Data location
+    axisname:Select which channel's data,---->"_DE_time","_FE_time","_BA_time"
+    '''
+    #--------------------
+    # f = open(filename, "r", encoding='gb18030', errors='ignore')
+    fl = []
+    # if  "ball_20_0.csv" in filename:
+    #     for line in islice(f, 1, None):  # Skip the first 1 lines
+    #         line = line.rstrip()
+    #         word = line.split(",", 8)  # Separated by commas
+    #         fl.append(eval(word[1]))  # Take a vibration signal in the x direction as input
+    # else:
+    # for line in islice(f, 1, None):  # Skip the first 1 lines
+        # line = line.rstrip()
+        # word = line.split(",", 8)  # Separated by \t
+    df = pd.read_csv(filename)  # 第13行开始为加速度数据
+    fl = df["gearbox_vibration_y"]
+    fl = fl.values.reshape(-1, 1)
+    # df.columns = ['Column']
+    # # 使用 split 方法分割每行的单元格，expand=True 会将分割后的每个元素作为单独的列返回
+    # df_split = df['Column'].str.split(',', expand=True)
+    # # 将分割后的所有列转换为 float 类型
+    # df_split = df_split.astype(float)
+    # df_split.reset_index(drop=True, inplace=True)
+    #
+    #     # 现在 df_split 包含了分割后的五列数据
+    #     # 为这些新列设置列名
+    #     df_split.columns = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
+    #
+    #     fl = df_split['5']
+
+
+
+
+        # fl.append(eval(word[5]))  # Take a vibration signal in the x direction as input
+    #--------------------
+    # fl = np.array(fl)
+    # fl = fl.reshape(-1, 1)
+    # print(fl.shape())
+    data = []
+    lab = []
+    start, end = 0, signal_size
+    sample_count = 0
+    while end <= fl.shape[0] and sample_count <=700:
+    # while end <= fl.shape[0]:
+        data.append(fl[start:end])
+        lab.append(label)
+        start += signal_size
+        end += signal_size
+        sample_count+=1
+
+    return data, lab
+#--------------------------------------------------------------------------------------------------------------------
+class MCC5(object):
+    num_classes = 6
+    inputchannel = 1
+    def __init__(self, data_dir, transfer_task, normlizetype="0-1"):
+        self.data_dir = data_dir
+        self.source_N = transfer_task[0]
+        self.target_N = transfer_task[1]
+        self.normlizetype = normlizetype
+        self.data_transforms = {
+            'train': Compose([
+                Reshape(),
+                Normalize(self.normlizetype),
+                # RandomAddGaussian(),
+                # RandomScale(),
+                # RandomStretch(),
+                # RandomCrop(),
+                Retype(),
+                # Scale(1)
+            ]),
+            'val': Compose([
+                Reshape(),
+                Normalize(self.normlizetype),
+                Retype(),
+                # Scale(1)
+            ])
+        }
+
+    def data_split(self, transfer_learning=True):
+        if transfer_learning:
+            # get source train and val
+            list_data = get_files(self.data_dir, self.source_N)
+            class_number = [cla for cla in os.listdir(self.data_dir) if os.path.isdir(os.path.join(self.data_dir, cla))]
+            # 排序，保证各平台顺序一致
+            class_number.sort()
+            # 生成类别名称以及对应的数字索引
+            class_indices = dict((k, v) for v, k in enumerate(class_number))
+            json_str = json.dumps(dict((val, key) for key, val in class_indices.items()), indent=4)
+            with open('class_indices.json', 'w') as json_file:
+                json_file.write(json_str.encode('utf-8').decode('unicode_escape'))
+            data_pd = pd.DataFrame({"data": list_data[0], "label": list_data[1]})
+            train_pd, val_pd = train_test_split(data_pd, test_size=0.2, random_state=40, stratify=data_pd["label"])
+            source_train = dataset(list_data=train_pd, transform=self.data_transforms['train'])
+            source_val = dataset(list_data=val_pd, transform=self.data_transforms['val'])
+
+            # get target train and val
+            list_data = get_files(self.data_dir, self.target_N)
+            data_pd = pd.DataFrame({"data": list_data[0], "label": list_data[1]})
+            train_pd, val_pd = train_test_split(data_pd, test_size=0.2, random_state=40, stratify=data_pd["label"])
+            target_train = dataset(list_data=train_pd, transform=self.data_transforms['train'])
+            target_noshuffle = dataset(list_data=train_pd, transform=self.data_transforms['train'])
+            target_val = dataset(list_data=val_pd, transform=self.data_transforms['val'])
+            return source_train, source_val, target_train, target_val, target_noshuffle
+        else:
+            #get source train and val
+            list_data = get_files(self.data_dir, self.source_N)
+            data_pd = pd.DataFrame({"data": list_data[0], "label": list_data[1]})
+            train_pd, val_pd = train_test_split(data_pd, test_size=0.2, random_state=40, stratify=data_pd["label"])
+            source_train = dataset(list_data=train_pd, transform=self.data_transforms['train'])
+            source_val = dataset(list_data=val_pd, transform=self.data_transforms['val'])
+
+            # get target train and val
+            list_data = get_files(self.data_dir, self.target_N)
+            data_pd = pd.DataFrame({"data": list_data[0], "label": list_data[1]})
+            target_val = dataset(list_data=data_pd, transform=self.data_transforms['val'])
+            return source_train, source_val, target_val
